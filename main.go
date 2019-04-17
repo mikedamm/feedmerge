@@ -134,6 +134,7 @@ func handleOutbound(conn net.Conn, top *topic.Topic) {
                                 _, err := conn.Write(msg.([]byte))
                                 if err != nil {
                                         conn.Close()
+					top.Unregister(consumer)
                                         return
                                 }
                                 countMessagesOutbound.Incr(1)
