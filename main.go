@@ -8,6 +8,7 @@ import (
         "net"
         "os"
         "time"
+	"strconv"
 )
 
 var countInbound = 0
@@ -16,14 +17,25 @@ var countMessagesInbound = ratecounter.NewRateCounter(60 * time.Second)
 var countMessagesOutbound = ratecounter.NewRateCounter(60 * time.Second)
 
 func main() {
+	var inboundPort int
+	var outboundPort int
+	flag.IntVar(&inboundPort, "inport", 2000, "Port to listen for inbound TCP/UDP feeds")
+	flag.IntVar(&outboundPort, "outport", 3000, "Port to provide aggregated TCP feed")
 
-        var msgsize int
+	var msgsize int
         flag.IntVar(&msgsize, "msgsize", 4096, "Maximum message size")
 
+	flag.Parse()
+
+	if len(os.Args) < 2 {
+		flag.PrintDefaults()
+		os.Exit(1)
+	}
+
         top := topic.New()
-        go startInboundTCP(top, msgsize)
-        go startInboundUDP(top, msgsize)
-        go startOutboundTCP(top)
+        go startInboundTCP(inboundPort, top, msgsize)
+        go startInboundUDP(inboundPort, top, msgsize)
+        go startOutboundTCP(outboundPort, top)
         for {
                 time.Sleep(60 * time.Second)
                 msgSecIn := countMessagesInbound.Rate() / 60
@@ -33,8 +45,8 @@ func main() {
         }
 }
 
-func startInboundUDP(top *topic.Topic, msgsize int) {
-        pc, err := net.ListenPacket("udp", "0.0.0.0:2000")
+func startInboundUDP(inboundPort int, top *topic.Topic, msgsize int) {
+        pc, err := net.ListenPacket("udp", "0.0.0.0:" + strconv.Itoa(inboundPort))
         if err != nil {
                 fmt.Println("Error binding UDP: ", err.Error())
                 os.Exit(1)
@@ -48,8 +60,8 @@ func startInboundUDP(top *topic.Topic, msgsize int) {
         }
 }
 
-func startInboundTCP(top *topic.Topic, msgsize int) {
-        l, err := net.Listen("tcp", "0.0.0.0:2000")
+func startInboundTCP(inboundPort int, top *topic.Topic, msgsize int) {
+        l, err := net.Listen("tcp", "0.0.0.0:" + strconv.Itoa(inboundPort))
         if err != nil {
                 fmt.Println("Error binding TCP: ", err.Error())
                 os.Exit(1)
@@ -65,8 +77,8 @@ func startInboundTCP(top *topic.Topic, msgsize int) {
         }
 }
 
-func startOutboundTCP(top *topic.Topic) {
-        l, err := net.Listen("tcp", "0.0.0.0:3000")
+func startOutboundTCP(outboundPort int, top *topic.Topic) {
+        l, err := net.Listen("tcp", "0.0.0.0:" + strconv.Itoa(outboundPort))
         if err != nil {
                 fmt.Println("Error binding port: ", err.Error())
                 os.Exit(1)
