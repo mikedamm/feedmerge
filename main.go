@@ -51,7 +51,7 @@ func main() {
 }
 
 func startSendTCP(outURL string, top *topic.Topic, msgsize int) {
-	conn,err := Dial("tcp", outURL)
+	conn,err := net.Dial("tcp", outURL)
 	if err != nil { 
 	} else {
 		fmt.Println("TCP send connection.")
