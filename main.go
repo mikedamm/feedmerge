@@ -21,7 +21,8 @@ func main() {
 	var outboundPort int
 	flag.IntVar(&inboundPort, "inport", 2000, "Port to listen for inbound TCP/UDP feeds")
 	flag.IntVar(&outboundPort, "outport", 3000, "Port to provide aggregated TCP feed")
-
+	flag.StringVar(&outUrl, "outurl", "", "Send data out with gusto.")
+	
 	var msgsize int
         flag.IntVar(&msgsize, "msgsize", 4096, "Maximum message size")
 
@@ -35,7 +36,9 @@ func main() {
         top := topic.New()
         go startInboundTCP(inboundPort, top, msgsize)
         go startInboundUDP(inboundPort, top, msgsize)
-        go startOutboundTCP(outboundPort, top)
+	if outUrl != "" { go startSendTCP(outUrl, top, msgsize) }
+	go startOutboundTCP(outboundPort, top)
+	
         for {
                 time.Sleep(60 * time.Second)
                 msgSecIn := countMessagesInbound.Rate() / 60
@@ -43,6 +46,15 @@ func main() {
                 fmt.Printf("Inbound: %v clients, %v msg/sec. Outbound: %v clients, %v msg/sec\n",
                         countInbound, msgSecIn, countOutbound, msgSecOut)
         }
+}
+
+func startSendTCP(outURL string, top *topic.Topic, msgsize int) {
+	conn,err := Dial("tcp", outURL)
+	if err != nil { 
+	} else {
+		fmt.Println("TCP send connection.")
+		go handleOutbound(conn,top)
+	}
 }
 
 func startInboundUDP(inboundPort int, top *topic.Topic, msgsize int) {
@@ -123,7 +135,7 @@ func handleOutbound(conn net.Conn, top *topic.Topic) {
         defer handleOutboundExit()
         countOutbound++
 
-        consumer := make(chan interface{}, 10)
+        consumer := make(chan interface{}, 10000)
         defer top.Unregister(consumer)
         top.Register(consumer)
 
@@ -139,7 +151,8 @@ func handleOutbound(conn net.Conn, top *topic.Topic) {
                                 }
                                 countMessagesOutbound.Incr(1)
                         } else {
-                                break
+				fmt.Println("Not OK!")
+                                return
                         }
                 }
         }
