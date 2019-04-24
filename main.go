@@ -19,6 +19,8 @@ var countMessagesOutbound = ratecounter.NewRateCounter(60 * time.Second)
 func main() {
 	var inboundPort int
 	var outboundPort int
+	var outUrl string
+	
 	flag.IntVar(&inboundPort, "inport", 2000, "Port to listen for inbound TCP/UDP feeds")
 	flag.IntVar(&outboundPort, "outport", 3000, "Port to provide aggregated TCP feed")
 	flag.StringVar(&outUrl, "outurl", "", "Send data out with gusto.")
