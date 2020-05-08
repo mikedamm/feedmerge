@@ -71,7 +71,11 @@ func startInboundUDP(inboundPort int, top *topic.Topic, msgsize int) {
 	defer pc.Close()
 	buf := make([]byte, msgsize)
 	for {
-		pc.ReadFrom(buf)
+		_, _, err = pc.ReadFrom(buf)
+		if err != nil {
+			fmt.Println("Error reading from UDP: ", err.Error())
+			return
+		}
 		countMessagesInbound.Incr(1)
 		top.Broadcast <- buf
 	}
@@ -144,21 +148,14 @@ func handleOutbound(conn net.Conn, top *topic.Topic) {
 	defer top.Unregister(consumer)
 	top.Register(consumer)
 
-	for {
-		select {
-		case msg, ok := <-consumer:
-			if ok {
-				_, err := conn.Write(msg.([]byte))
-				if err != nil {
-					conn.Close()
-					top.Unregister(consumer)
-					return
-				}
-				countMessagesOutbound.Incr(1)
-			} else {
-				fmt.Println("Not OK!")
-				return
-			}
+	for msg := range consumer {
+		_, err := conn.Write(msg.([]byte))
+		if err != nil {
+			conn.Close()
+			top.Unregister(consumer)
+			return
 		}
+		countMessagesOutbound.Incr(1)
 	}
+	fmt.Println("Not OK!")
 }
