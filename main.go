@@ -6,14 +6,15 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/paulbellamy/ratecounter"
 	"github.com/tv42/topic"
 )
 
-var countInbound = 0
-var countOutbound = 0
+var countInbound int64 = 0
+var countOutbound int64 = 0
 var countMessagesInbound = ratecounter.NewRateCounter(60 * time.Second)
 var countMessagesOutbound = ratecounter.NewRateCounter(60 * time.Second)
 
@@ -49,7 +50,8 @@ func main() {
 		msgSecIn := countMessagesInbound.Rate() / 60
 		msgSecOut := countMessagesOutbound.Rate() / 60
 		fmt.Printf("Inbound: %v clients, %v msg/sec. Outbound: %v clients, %v msg/sec\n",
-			countInbound, msgSecIn, countOutbound, msgSecOut)
+			atomic.LoadInt64(&countInbound), msgSecIn,
+			atomic.LoadInt64(&countOutbound), msgSecOut)
 	}
 }
 
@@ -116,17 +118,17 @@ func startOutboundTCP(outboundPort int, top *topic.Topic) {
 }
 
 func handleInboundExit() {
-	countInbound--
+	atomic.AddInt64(&countInbound, -1)
 }
 
 func handleOutboundExit() {
-	countOutbound--
+	atomic.AddInt64(&countOutbound, -1)
 }
 
 func handleInbound(conn net.Conn, top *topic.Topic, msgsize int) {
 	defer conn.Close()
 	defer handleInboundExit()
-	countInbound++
+	atomic.AddInt64(&countInbound, 1)
 	for {
 		buf := make([]byte, msgsize)
 		_, err := conn.Read(buf)
@@ -142,7 +144,7 @@ func handleInbound(conn net.Conn, top *topic.Topic, msgsize int) {
 func handleOutbound(conn net.Conn, top *topic.Topic) {
 	defer conn.Close()
 	defer handleOutboundExit()
-	countOutbound++
+	atomic.AddInt64(&countOutbound, 1)
 
 	consumer := make(chan interface{}, 10000)
 	defer top.Unregister(consumer)
