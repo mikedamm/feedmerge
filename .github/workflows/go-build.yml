@@ -1,0 +1,25 @@
+name: go-build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+
+    - name: Install dependencies
+      run: go get .
+
+    - name: Build
+      run: go build -v ./...
